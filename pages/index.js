@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 
 /* ══════════════════════════════════════════════════════
    DESIGN SYSTEM — Warm editorial, no gradients
@@ -158,6 +158,25 @@ const FadeIn = ({ children, delay = 0, style: s }) => {
   return <div ref={ref} style={{ opacity: vis ? 1 : 0, transform: vis ? "translateY(0)" : "translateY(30px)", transition: `opacity .7s ease ${delay}s, transform .7s ease ${delay}s`, ...s }}>{children}</div>;
 };
 
+/** Responsive: isMobile (under 640px), isTablet (640–1023px), isNarrow (under 900px, stacked hero) */
+const useBreakpoint = () => {
+  const [w, setW] = useState(1024);
+  useLayoutEffect(() => {
+    setW(window.innerWidth);
+  }, []);
+  useEffect(() => {
+    const fn = () => setW(window.innerWidth);
+    window.addEventListener("resize", fn, { passive: true });
+    return () => window.removeEventListener("resize", fn);
+  }, []);
+  return {
+    w,
+    isMobile: w < 640,
+    isTablet: w >= 640 && w < 1024,
+    isNarrow: w < 900,
+  };
+};
+
 /* ══════════════════════════════════════════════════════
    DATA
    ══════════════════════════════════════════════════════ */
@@ -226,6 +245,12 @@ const USERS = {
    ══════════════════════════════════════════════════════ */
 const LandingPage = ({ onNavigate }) => {
   const [scrollY, setScrollY] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { isMobile, isTablet, isNarrow } = useBreakpoint();
+  const padX = isMobile ? 20 : isTablet ? 32 : 60;
+  const sectionY = isMobile ? 56 : isTablet ? 72 : 100;
+  const h1Size = isMobile ? 34 : isTablet ? 44 : 58;
+  const h2Size = isMobile ? 28 : isTablet ? 34 : 42;
 
   useEffect(() => {
     const fn = () => setScrollY(window.scrollY || 0);
@@ -233,10 +258,10 @@ const LandingPage = ({ onNavigate }) => {
     return () => window.removeEventListener("scroll", fn);
   }, []);
 
-  const navBg = scrollY > 60;
+  const navBg = scrollY > 60 || (isMobile && menuOpen);
 
   return (
-    <div style={{ fontFamily: T.font, color: T.text, background: T.bg }}>
+    <div style={{ fontFamily: T.font, color: T.text, background: T.bg, overflowX: "hidden" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -254,7 +279,7 @@ const LandingPage = ({ onNavigate }) => {
       {/* ── NAVBAR ─── */}
       <nav style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
-        padding: "0 40px", height: 70, display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: `0 ${padX}px`, height: 70, display: "flex", alignItems: "center", justifyContent: "space-between",
         background: navBg ? "rgba(255,255,255,0.95)" : "transparent",
         backdropFilter: navBg ? "blur(12px)" : "none",
         borderBottom: navBg ? `1px solid ${T.border}` : "none",
@@ -262,20 +287,42 @@ const LandingPage = ({ onNavigate }) => {
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 36, height: 36, borderRadius: T.radiusSm, background: T.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 16 }}>E</div>
-          <span style={{ fontSize: 20, fontWeight: 700, color: navBg ? T.text : "#fff", fontFamily: T.fontDisplay, transition: "color .3s" }}>EduPulse</span>
+          <span style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, color: navBg ? T.text : "#fff", fontFamily: T.fontDisplay, transition: "color .3s" }}>EduPulse</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
-          {["Features", "About", "Testimonials", "Contact"].map(item => (
-            <a key={item} href={`#${item.toLowerCase()}`} style={{ textDecoration: "none", color: navBg ? T.textMuted : "rgba(255,255,255,0.85)", fontSize: 14, fontWeight: 500, transition: "color .2s" }}
-              onMouseEnter={e => e.target.style.color = T.accent}
-              onMouseLeave={e => e.target.style.color = navBg ? T.textMuted : "rgba(255,255,255,0.85)"}
-            >{item}</a>
-          ))}
-          <Btn variant={navBg ? "primary" : "outline"} onClick={() => onNavigate("login")} style={{ borderRadius: 99 }}>
-            Sign In {I("arrowR", { size: 14, color: "#fff" })}
-          </Btn>
-        </div>
+        {!isMobile && (
+          <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 16 : 32, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            {["Features", "About", "Testimonials", "Contact"].map(item => (
+              <a key={item} href={`#${item.toLowerCase()}`} style={{ textDecoration: "none", color: navBg ? T.textMuted : "rgba(255,255,255,0.85)", fontSize: 14, fontWeight: 500, transition: "color .2s" }}
+                onMouseEnter={e => { e.currentTarget.style.color = T.accent; }}
+                onMouseLeave={e => { e.currentTarget.style.color = navBg ? T.textMuted : "rgba(255,255,255,0.85)"; }}
+              >{item}</a>
+            ))}
+            <Btn variant={navBg ? "primary" : "outline"} onClick={() => onNavigate("login")} style={{ borderRadius: 99 }}>
+              Sign In {I("arrowR", { size: 14, color: "#fff" })}
+            </Btn>
+          </div>
+        )}
+        {isMobile && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Btn variant={navBg ? "primary" : "outline"} onClick={() => { onNavigate("login"); setMenuOpen(false); }} style={{ borderRadius: 99, padding: "10px 18px", fontSize: 13 }}>
+              Sign In
+            </Btn>
+            <button type="button" aria-label={menuOpen ? "Close menu" : "Open menu"} onClick={() => setMenuOpen(o => !o)} style={{ border: "none", background: navBg ? T.surfaceAlt : "rgba(255,255,255,0.15)", borderRadius: T.radiusSm, padding: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {I(menuOpen ? "x" : "menu", { size: 22, color: navBg ? T.text : "#fff" })}
+            </button>
+          </div>
+        )}
       </nav>
+      {isMobile && menuOpen && (
+        <>
+          <div role="presentation" onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, top: 70, background: "rgba(0,0,0,0.35)", zIndex: 98 }} />
+          <div style={{ position: "fixed", top: 70, left: 0, right: 0, zIndex: 99, background: "#fff", borderBottom: `1px solid ${T.border}`, padding: "16px 20px 20px", display: "flex", flexDirection: "column", gap: 14, boxShadow: T.shadowLg }}>
+            {["Features", "About", "Testimonials", "Contact"].map(item => (
+              <a key={item} href={`#${item.toLowerCase()}`} onClick={() => setMenuOpen(false)} style={{ textDecoration: "none", color: T.text, fontSize: 15, fontWeight: 600, padding: "8px 0" }}>{item}</a>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* ── HERO SECTION ─── */}
       <section style={{ position: "relative", minHeight: "100vh", display: "flex", alignItems: "center", overflow: "hidden" }}>
@@ -294,17 +341,17 @@ const LandingPage = ({ onNavigate }) => {
         </div>
         <div style={{ position: "absolute", inset: 0, zIndex: 1, background: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px)" }} />
 
-        <div style={{ position: "relative", zIndex: 2, padding: "120px 60px 80px", maxWidth: 1300, margin: "0 auto", width: "100%", display: "flex", gap: 60, alignItems: "center" }}>
-          <div style={{ flex: 1, animation: "slideUp .8s ease" }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 16px", borderRadius: 99, border: "1px solid rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.8)", fontSize: 13, fontWeight: 500, marginBottom: 24 }}>
+        <div style={{ position: "relative", zIndex: 2, padding: `${isMobile ? 96 : 120}px ${padX}px ${isMobile ? 48 : 80}px`, maxWidth: 1300, margin: "0 auto", width: "100%", display: "flex", flexDirection: isNarrow ? "column" : "row", gap: isNarrow ? 40 : 60, alignItems: "center" }}>
+          <div style={{ flex: 1, width: "100%", minWidth: 0, animation: "slideUp .8s ease" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 16px", borderRadius: 99, border: "1px solid rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.8)", fontSize: isMobile ? 12 : 13, fontWeight: 500, marginBottom: 24 }}>
               {I("zap", { size: 14, color: T.accent })} Trusted by 200+ institutions
             </div>
-            <h1 style={{ fontSize: 58, fontWeight: 800, color: "#fff", lineHeight: 1.08, fontFamily: T.fontDisplay, marginBottom: 24 }}>
+            <h1 style={{ fontSize: h1Size, fontWeight: 800, color: "#fff", lineHeight: 1.08, fontFamily: T.fontDisplay, marginBottom: 24 }}>
               The Future of<br />
               <span style={{ color: T.accent }}>School Management</span><br />
               Starts Here
             </h1>
-            <p style={{ fontSize: 18, color: "rgba(255,255,255,0.7)", lineHeight: 1.7, maxWidth: 520, marginBottom: 36 }}>
+            <p style={{ fontSize: isMobile ? 16 : 18, color: "rgba(255,255,255,0.7)", lineHeight: 1.7, maxWidth: 520, marginBottom: 36 }}>
               EduPulse unifies attendance, scheduling, invoicing, exams, and parent communication into one elegant platform — built for administrators, teachers, students, and parents.
             </p>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
@@ -318,22 +365,22 @@ const LandingPage = ({ onNavigate }) => {
           </div>
 
           {/* Hero floating cards */}
-          <div style={{ flex: 1, position: "relative", minHeight: 420, animation: "scaleIn .9s ease .2s both", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ width: 320, borderRadius: T.radiusLg, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.4)", animation: "float 4s ease-in-out infinite" }}>
-              <img src={IMG.classroom} alt="" style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }} />
+          <div style={{ flex: 1, position: "relative", width: "100%", minHeight: isMobile ? 320 : 420, maxWidth: isNarrow ? 400 : "none", margin: isNarrow ? "0 auto" : undefined, animation: "scaleIn .9s ease .2s both", display: "flex", alignItems: "center", justifyContent: "center", padding: isMobile ? "0 8px" : 0 }}>
+            <div style={{ width: "100%", maxWidth: 320, borderRadius: T.radiusLg, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.4)", animation: "float 4s ease-in-out infinite" }}>
+              <img src={IMG.classroom} alt="" style={{ width: "100%", height: isMobile ? 160 : 200, objectFit: "cover", display: "block" }} />
               <div style={{ background: T.surface, padding: "16px 20px" }}>
                 <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>Smart Classroom</div>
                 <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 8 }}>Real-time attendance & analytics</div>
                 <Progress value={92} color={T.success} />
               </div>
             </div>
-            <div style={{ position: "absolute", bottom: 20, left: -20, background: T.surface, borderRadius: T.radius, padding: "14px 18px", boxShadow: T.shadowXl, animation: "float 4s ease-in-out infinite 1s" }}>
+            <div style={{ position: "absolute", bottom: isMobile ? 8 : 20, left: isMobile ? 0 : -20, background: T.surface, borderRadius: T.radius, padding: "14px 18px", boxShadow: T.shadowXl, animation: "float 4s ease-in-out infinite 1s" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ width: 36, height: 36, borderRadius: "50%", background: T.successBg, display: "flex", alignItems: "center", justifyContent: "center" }}>{I("check", { color: T.success, size: 16 })}</div>
                 <div><div style={{ fontSize: 12, fontWeight: 700 }}>Attendance</div><div style={{ fontSize: 20, fontWeight: 800, color: T.success }}>96.4%</div></div>
               </div>
             </div>
-            <div style={{ position: "absolute", top: 30, right: -10, background: T.surface, borderRadius: T.radius, padding: "12px 16px", boxShadow: T.shadowXl, animation: "float 4s ease-in-out infinite 2s" }}>
+            <div style={{ position: "absolute", top: isMobile ? 8 : 30, right: isMobile ? 0 : -10, background: T.surface, borderRadius: T.radius, padding: "12px 16px", boxShadow: T.shadowXl, animation: "float 4s ease-in-out infinite 2s" }}>
               <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 4 }}>Next Class</div>
               <div style={{ fontSize: 13, fontWeight: 700 }}>Physics Lab</div>
               <div style={{ fontSize: 12, color: T.accent }}>08:50 AM · Lab 3</div>
@@ -341,7 +388,7 @@ const LandingPage = ({ onNavigate }) => {
           </div>
         </div>
 
-        <div style={{ position: "absolute", bottom: 30, left: "50%", transform: "translateX(-50%)", zIndex: 2, animation: "pulse 2s ease infinite" }}>
+        <div style={{ position: "absolute", bottom: isMobile ? 16 : 30, left: "50%", transform: "translateX(-50%)", zIndex: 2, animation: "pulse 2s ease infinite" }}>
           <div style={{ width: 28, height: 44, borderRadius: 14, border: "2px solid rgba(255,255,255,0.3)", display: "flex", justifyContent: "center", paddingTop: 8 }}>
             <div style={{ width: 4, height: 10, borderRadius: 2, background: "rgba(255,255,255,0.6)" }} />
           </div>
@@ -349,21 +396,21 @@ const LandingPage = ({ onNavigate }) => {
       </section>
 
       {/* ── STATS BAR ─── */}
-      <section style={{ background: T.dark, padding: "50px 60px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 40, textAlign: "center" }}>
+      <section style={{ background: T.dark, padding: `${isMobile ? 36 : 50}px ${padX}px` }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: isMobile ? 24 : 40, textAlign: "center" }}>
           {[{ val: 200, suffix: "+", label: "Schools & Colleges" }, { val: 50000, suffix: "+", label: "Active Students" }, { val: 3500, suffix: "+", label: "Teachers Onboard" }, { val: 99, suffix: "%", label: "Uptime Guarantee" }].map((s, i) => (
-            <FadeIn key={i} delay={i * 0.1}><div style={{ fontSize: 42, fontWeight: 800, color: "#fff", fontFamily: T.fontDisplay }}><Counter end={s.val} suffix={s.suffix} /></div><div style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>{s.label}</div></FadeIn>
+            <FadeIn key={i} delay={i * 0.1}><div style={{ fontSize: isMobile ? 30 : 42, fontWeight: 800, color: "#fff", fontFamily: T.fontDisplay }}><Counter end={s.val} suffix={s.suffix} /></div><div style={{ fontSize: isMobile ? 12 : 14, color: "rgba(255,255,255,0.5)", marginTop: 4, lineHeight: 1.35 }}>{s.label}</div></FadeIn>
           ))}
         </div>
       </section>
 
       {/* ── FEATURES ─── */}
-      <section id="features" style={{ padding: "100px 60px", maxWidth: 1200, margin: "0 auto" }}>
-        <FadeIn><div style={{ textAlign: "center", marginBottom: 64 }}>
+      <section id="features" style={{ padding: `${sectionY}px ${padX}px`, maxWidth: 1200, margin: "0 auto" }}>
+        <FadeIn><div style={{ textAlign: "center", marginBottom: isMobile ? 40 : 64 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: T.accent, textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>Powerful Features</div>
-          <h2 style={{ fontSize: 42, fontWeight: 800, fontFamily: T.fontDisplay, lineHeight: 1.15 }}>Everything Your<br />Institution Needs</h2>
+          <h2 style={{ fontSize: h2Size, fontWeight: 800, fontFamily: T.fontDisplay, lineHeight: 1.15 }}>Everything Your<br />Institution Needs</h2>
         </div></FadeIn>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : isTablet ? "repeat(2, 1fr)" : "repeat(3, 1fr)", gap: isMobile ? 18 : 24 }}>
           {[
             { icon: "users", title: "Student Management", desc: "Complete profiles, enrollment tracking, academic records, and parent information in one unified view.", img: IMG.students, color: T.accent },
             { icon: "calendar", title: "Class Scheduling", desc: "Drag-and-drop timetable builder with conflict detection, room allocation, and teacher availability.", img: IMG.classroom, color: T.info },
@@ -387,13 +434,13 @@ const LandingPage = ({ onNavigate }) => {
       </section>
 
       {/* ── DASHBOARD PREVIEW ─── */}
-      <section id="about" style={{ background: T.dark, padding: "100px 60px", overflow: "hidden" }}>
+      <section id="about" style={{ background: T.dark, padding: `${sectionY}px ${padX}px`, overflow: "hidden" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <FadeIn><div style={{ textAlign: "center", marginBottom: 64 }}>
+          <FadeIn><div style={{ textAlign: "center", marginBottom: isMobile ? 40 : 64 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: T.accent, textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>4 Dedicated Dashboards</div>
-            <h2 style={{ fontSize: 42, fontWeight: 800, color: "#fff", fontFamily: T.fontDisplay, lineHeight: 1.15 }}>Built for Every Role</h2>
+            <h2 style={{ fontSize: h2Size, fontWeight: 800, color: "#fff", fontFamily: T.fontDisplay, lineHeight: 1.15 }}>Built for Every Role</h2>
           </div></FadeIn>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isNarrow ? "1fr" : "repeat(2, 1fr)", gap: isMobile ? 18 : 24 }}>
             {[
               { role: "Admin", desc: "Full control over students, teachers, financials, attendance, and institutional analytics.", icon: "grid", color: T.accent, email: "admin@edupulse.edu" },
               { role: "Teacher", desc: "Class management, attendance marking, exam scheduling, and grade entry — all in one place.", icon: "book", color: T.info, email: "teacher@edupulse.edu" },
@@ -401,7 +448,7 @@ const LandingPage = ({ onNavigate }) => {
               { role: "Parent", desc: "Monitor your child's attendance, academic progress, invoices, and school announcements.", icon: "shield", color: T.warn, email: "parent@edupulse.edu" },
             ].map((r, i) => (
               <FadeIn key={i} delay={i * 0.1}>
-                <div className="hover-lift" onClick={() => onNavigate("login")} style={{ background: T.darkSurface, border: "1px solid rgba(255,255,255,0.08)", borderRadius: T.radiusLg, padding: 32, cursor: "pointer" }}>
+                <div className="hover-lift" onClick={() => onNavigate("login")} style={{ background: T.darkSurface, border: "1px solid rgba(255,255,255,0.08)", borderRadius: T.radiusLg, padding: isMobile ? 22 : 32, cursor: "pointer" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
                     <div style={{ width: 48, height: 48, borderRadius: T.radius, background: r.color + "20", display: "flex", alignItems: "center", justifyContent: "center" }}>{I(r.icon, { color: r.color, size: 22 })}</div>
                     <div><div style={{ fontSize: 20, fontWeight: 700, color: "#fff", fontFamily: T.fontDisplay }}>{r.role} Dashboard</div><div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: T.fontMono }}>{r.email}</div></div>
@@ -416,12 +463,18 @@ const LandingPage = ({ onNavigate }) => {
       </section>
 
       {/* ── IMAGE MOSAIC ─── */}
-      <section style={{ padding: "100px 60px", maxWidth: 1200, margin: "0 auto" }}>
+      <section style={{ padding: `${sectionY}px ${padX}px`, maxWidth: 1200, margin: "0 auto" }}>
         <FadeIn><div style={{ textAlign: "center", marginBottom: 48 }}>
-          <h2 style={{ fontSize: 42, fontWeight: 800, fontFamily: T.fontDisplay }}>Campus Life</h2>
+          <h2 style={{ fontSize: h2Size, fontWeight: 800, fontFamily: T.fontDisplay }}>Campus Life</h2>
           <p style={{ fontSize: 16, color: T.textMuted, marginTop: 8 }}>Empowering education through technology</p>
         </div></FadeIn>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gridTemplateRows: "220px 220px", gap: 16 }}>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr 1fr",
+          gridTemplateRows: isMobile ? undefined : "220px 220px",
+          gridAutoRows: isMobile ? "minmax(180px, 220px)" : undefined,
+          gap: 16,
+        }}>
           {[
             { img: IMG.campus, col: "1 / 2", row: "1 / 3", r: `${T.radiusLg} 0 0 ${T.radiusLg}` },
             { img: IMG.lab, r: `0 ${T.radiusLg} 0 0` },
@@ -429,8 +482,8 @@ const LandingPage = ({ onNavigate }) => {
             { img: IMG.tech, r: "0" },
             { img: IMG.library, r: `0 0 ${T.radiusLg} 0` },
           ].map((item, i) => (
-            <FadeIn key={i} delay={i * 0.08} style={{ gridColumn: item.col, gridRow: item.row, overflow: "hidden", borderRadius: item.r }}>
-              <div className="img-zoom" style={{ height: "100%", overflow: "hidden", borderRadius: item.r }}>
+            <FadeIn key={i} delay={i * 0.08} style={{ gridColumn: isMobile ? "auto" : item.col, gridRow: isMobile ? "auto" : item.row, overflow: "hidden", borderRadius: isMobile ? T.radiusLg : item.r }}>
+              <div className="img-zoom" style={{ height: "100%", minHeight: isMobile ? 180 : "100%", overflow: "hidden", borderRadius: isMobile ? T.radiusLg : item.r }}>
                 <img src={item.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               </div>
             </FadeIn>
@@ -439,20 +492,20 @@ const LandingPage = ({ onNavigate }) => {
       </section>
 
       {/* ── TESTIMONIALS ─── */}
-      <section id="testimonials" style={{ background: T.surfaceAlt, padding: "100px 60px" }}>
+      <section id="testimonials" style={{ background: T.surfaceAlt, padding: `${sectionY}px ${padX}px` }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <FadeIn><div style={{ textAlign: "center", marginBottom: 48 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: T.accent, textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>Testimonials</div>
-            <h2 style={{ fontSize: 42, fontWeight: 800, fontFamily: T.fontDisplay }}>Loved by Educators</h2>
+            <h2 style={{ fontSize: h2Size, fontWeight: 800, fontFamily: T.fontDisplay }}>Loved by Educators</h2>
           </div></FadeIn>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : isTablet ? "repeat(2, 1fr)" : "repeat(3, 1fr)", gap: 24 }}>
             {[
               { quote: "EduPulse transformed how we manage 1,200 students. Attendance tracking alone saved us 15 hours per week.", name: "Dr. Amina Rashid", role: "Principal, Lahore Grammar" },
               { quote: "As a teacher, the grading and schedule features are incredibly intuitive. I can focus on teaching, not paperwork.", name: "Mr. Farhan Qureshi", role: "Senior Teacher, Beaconhouse" },
               { quote: "Finally, I can see my daughter's attendance and grades in real-time. The parent portal gives me peace of mind.", name: "Mrs. Sarah Hussain", role: "Parent" },
             ].map((t, i) => (
               <FadeIn key={i} delay={i * 0.12}>
-                <Card className="hover-lift" style={{ padding: 32, height: "100%" }}>
+                <Card className="hover-lift" style={{ padding: isMobile ? 22 : 32, height: "100%" }}>
                   <div style={{ display: "flex", gap: 2, marginBottom: 16 }}>{Array(5).fill(0).map((_, j) => I("star", { key: j, size: 16, color: T.warn }))}</div>
                   <p style={{ fontSize: 15, color: T.text, lineHeight: 1.75, marginBottom: 24, fontStyle: "italic" }}>"{t.quote}"</p>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -467,13 +520,13 @@ const LandingPage = ({ onNavigate }) => {
       </section>
 
       {/* ── CTA ─── */}
-      <section style={{ position: "relative", padding: "100px 60px", overflow: "hidden" }}>
+      <section style={{ position: "relative", padding: `${sectionY}px ${padX}px`, overflow: "hidden" }}>
         <div style={{ position: "absolute", inset: 0, zIndex: 0, backgroundImage: `url(${IMG.hero})`, backgroundSize: "cover", backgroundPosition: "center bottom", filter: "brightness(0.15)" }} />
         <div style={{ position: "absolute", inset: 0, zIndex: 1, background: "rgba(0,0,0,0.55)" }} />
-        <div style={{ position: "relative", zIndex: 2, maxWidth: 700, margin: "0 auto", textAlign: "center" }}>
+        <div style={{ position: "relative", zIndex: 2, maxWidth: 700, margin: "0 auto", textAlign: "center", padding: isMobile ? "0 4px" : 0 }}>
           <FadeIn>
-            <h2 style={{ fontSize: 46, fontWeight: 800, color: "#fff", fontFamily: T.fontDisplay, lineHeight: 1.15, marginBottom: 20 }}>Ready to Transform<br />Your Institution?</h2>
-            <p style={{ fontSize: 17, color: "rgba(255,255,255,0.82)", marginBottom: 36, lineHeight: 1.7 }}>Join 200+ schools already using EduPulse. Start your free trial today — no credit card required.</p>
+            <h2 style={{ fontSize: isMobile ? 28 : isTablet ? 38 : 46, fontWeight: 800, color: "#fff", fontFamily: T.fontDisplay, lineHeight: 1.15, marginBottom: 20 }}>Ready to Transform<br />Your Institution?</h2>
+            <p style={{ fontSize: isMobile ? 15 : 17, color: "rgba(255,255,255,0.82)", marginBottom: 36, lineHeight: 1.7 }}>Join 200+ schools already using EduPulse. Start your free trial today — no credit card required.</p>
             <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
               <Btn variant="primary" size="lg" onClick={() => onNavigate("login")} style={{ borderRadius: 99 }}>Start Free Trial {I("arrowR", { size: 16, color: "#fff" })}</Btn>
               <Btn variant="outline" size="lg" style={{ borderRadius: 99 }}>{I("phone", { size: 16, color: "#fff" })} Contact Sales</Btn>
@@ -483,9 +536,9 @@ const LandingPage = ({ onNavigate }) => {
       </section>
 
       {/* ── FOOTER ─── */}
-      <footer id="contact" style={{ background: T.dark, padding: "60px 60px 30px" }}>
+      <footer id="contact" style={{ background: T.dark, padding: `${isMobile ? 40 : 60}px ${padX}px 30px` }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 40, marginBottom: 50 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : isTablet ? "repeat(2, 1fr)" : "2fr 1fr 1fr 1fr", gap: isMobile ? 32 : 40, marginBottom: 50 }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
                 <div style={{ width: 36, height: 36, borderRadius: T.radiusSm, background: T.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 16 }}>E</div>
@@ -500,9 +553,9 @@ const LandingPage = ({ onNavigate }) => {
               </div>
             ))}
           </div>
-          <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 24, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 24, display: "flex", flexDirection: isMobile ? "column" : "row", justifyContent: "space-between", alignItems: isMobile ? "flex-start" : "center", gap: isMobile ? 16 : 0 }}>
             <div style={{ fontSize: 13, color: "rgba(255,255,255,0.3)" }}>© 2026 EduPulse. All rights reserved.</div>
-            <div style={{ display: "flex", gap: 20 }}>{["Privacy", "Terms", "Cookies"].map(l => <span key={l} style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", cursor: "pointer" }}>{l}</span>)}</div>
+            <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>{["Privacy", "Terms", "Cookies"].map(l => <span key={l} style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", cursor: "pointer" }}>{l}</span>)}</div>
           </div>
         </div>
       </footer>
@@ -519,6 +572,8 @@ const LoginPage = ({ onLogin, onNavigate }) => {
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const { isMobile, isTablet } = useBreakpoint();
+  const loginPad = isMobile ? 24 : isTablet ? 36 : 50;
 
   const handleSubmit = () => {
     setError("");
@@ -531,25 +586,25 @@ const LoginPage = ({ onLogin, onNavigate }) => {
   };
 
   return (
-    <div style={{ fontFamily: T.font, minHeight: "100vh", display: "flex" }}>
+    <div style={{ fontFamily: T.font, minHeight: "100vh", display: "flex", flexDirection: isMobile ? "column" : "row", overflowX: "hidden" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
       <style>{`@keyframes slideUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }`}</style>
 
       {/* Left — Image */}
-      <div style={{ flex: 1, position: "relative", overflow: "hidden", display: "flex", alignItems: "flex-end" }}>
+      <div style={{ flex: isMobile ? "none" : 1, minHeight: isMobile ? 200 : "auto", position: "relative", overflow: "hidden", display: "flex", alignItems: "flex-end" }}>
         <div style={{ position: "absolute", inset: 0, backgroundImage: `url(${IMG.campus})`, backgroundSize: "cover", backgroundPosition: "center", filter: "brightness(0.3)" }} />
-        <div style={{ position: "relative", zIndex: 1, padding: 50, maxWidth: 500 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24, cursor: "pointer" }} onClick={() => onNavigate("landing")}>
+        <div style={{ position: "relative", zIndex: 1, padding: loginPad, maxWidth: 500, width: "100%" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: isMobile ? 16 : 24, cursor: "pointer" }} onClick={() => onNavigate("landing")}>
             <div style={{ width: 36, height: 36, borderRadius: T.radiusSm, background: T.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 16 }}>E</div>
             <span style={{ fontSize: 20, fontWeight: 700, color: "#fff", fontFamily: T.fontDisplay }}>EduPulse</span>
           </div>
-          <h2 style={{ fontSize: 34, fontWeight: 800, color: "#fff", fontFamily: T.fontDisplay, lineHeight: 1.2, marginBottom: 12 }}>Welcome back to<br />your learning hub</h2>
+          <h2 style={{ fontSize: isMobile ? 26 : 34, fontWeight: 800, color: "#fff", fontFamily: T.fontDisplay, lineHeight: 1.2, marginBottom: 12 }}>Welcome back to<br />your learning hub</h2>
           <p style={{ fontSize: 15, color: "rgba(255,255,255,0.55)", lineHeight: 1.7 }}>Manage your entire institution from one powerful dashboard. Sign in to continue.</p>
         </div>
       </div>
 
       {/* Right — Login Form */}
-      <div style={{ width: 520, background: T.surface, display: "flex", alignItems: "center", justifyContent: "center", padding: 50 }}>
+      <div style={{ width: isMobile ? "100%" : 520, flexShrink: 0, background: T.surface, display: "flex", alignItems: "center", justifyContent: "center", padding: loginPad, minHeight: isMobile ? undefined : "100vh" }}>
         <div style={{ width: "100%", maxWidth: 380, animation: "slideUp .6s ease" }}>
           <h2 style={{ fontSize: 28, fontWeight: 800, fontFamily: T.fontDisplay, marginBottom: 6 }}>Sign In</h2>
           <p style={{ fontSize: 14, color: T.textMuted, marginBottom: 32 }}>Enter your credentials to access your dashboard</p>
@@ -618,6 +673,7 @@ const LoginPage = ({ onLogin, onNavigate }) => {
    ══════════════════════════════════════════════════════ */
 const AdminDashboard = () => {
   const [tab, setTab] = useState("overview");
+  const { isMobile } = useBreakpoint();
   return (<div>
     <Tabs tabs={[{ key: "overview", label: "Overview" }, { key: "students", label: "Students" }, { key: "invoices", label: "Invoices" }, { key: "attendance", label: "Attendance" }, { key: "exams", label: "Exams" }]} active={tab} onChange={setTab} />
     {tab === "overview" && (<>
@@ -627,7 +683,7 @@ const AdminDashboard = () => {
         <StatCard label="Revenue (Apr)" value="Rs 8.4M" sub="Rs 2.1M pending" icon="dollar" color={T.success} bg={T.successBg} />
         <StatCard label="Attendance Today" value="92.4%" sub="245 / 265" icon="check" color={T.warn} bg={T.warnBg} />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
         <Card><SectionHeader title="Attendance Trend (5 days)" />
           <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: 120, paddingTop: 10 }}>
             {attendanceData.map((d, i) => (<div key={i} style={{ flex: 1, textAlign: "center" }}><div style={{ background: T.accent, borderRadius: 4, height: `${(d.present / d.total) * 100}%`, minHeight: 20, transition: "height .3s" }} /><div style={{ fontSize: 10, color: T.textMuted, marginTop: 6 }}>{d.date.split(" ")[1]}</div></div>))}
@@ -663,6 +719,7 @@ const AdminDashboard = () => {
 
 const TeacherDashboard = () => {
   const [tab, setTab] = useState("overview");
+  const { isMobile } = useBreakpoint();
   return (<div>
     <Tabs tabs={[{ key: "overview", label: "My Classes" }, { key: "schedule", label: "Schedule" }, { key: "attendance", label: "Mark Attendance" }, { key: "exams", label: "Exams & Grading" }]} active={tab} onChange={setTab} />
     {tab === "overview" && (<>
@@ -672,7 +729,7 @@ const TeacherDashboard = () => {
         <StatCard label="Avg Attendance" value="91%" sub="This week" icon="check" color={T.success} bg={T.successBg} />
         <StatCard label="Pending Grades" value="23" sub="Due Apr 15" icon="file" color={T.warn} bg={T.warnBg} />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
         <Card><SectionHeader title="Today's Schedule" />{schedule.slice(0, 4).map((s, i) => <ScheduleItem key={i} {...s} />)}</Card>
         <Card><SectionHeader title="My Students — Class 10-A" /><Table columns={[
           { key: "name", label: "Student", render: v => <div style={{ display: "flex", alignItems: "center", gap: 8 }}><Avatar name={v} size={26} />{v}</div> },
@@ -690,6 +747,7 @@ const TeacherDashboard = () => {
 const StudentDashboard = () => {
   const me = students[0];
   const [tab, setTab] = useState("overview");
+  const { isMobile } = useBreakpoint();
   return (<div>
     <Tabs tabs={[{ key: "overview", label: "Overview" }, { key: "schedule", label: "Schedule" }, { key: "exams", label: "Exams & Results" }, { key: "invoices", label: "Fee Status" }]} active={tab} onChange={setTab} />
     {tab === "overview" && (<>
@@ -702,7 +760,7 @@ const StudentDashboard = () => {
         <StatCard label="Upcoming Exams" value="3" sub="Next: Apr 18" icon="file" color={T.info} bg={T.infoBg} />
         <StatCard label="Fee Status" value={me.fees} icon="dollar" color={T.success} bg={T.successBg} />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
         <Card><SectionHeader title="Today's Classes" />{schedule.slice(0, 5).map((s, i) => <ScheduleItem key={i} {...s} />)}</Card>
         <Card><SectionHeader title="Upcoming Exams" />{exams.filter(e => e.status === "Upcoming").map((e, i) => (<div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${T.border}` }}><div><div style={{ fontSize: 13, fontWeight: 600 }}>{e.title}</div><div style={{ fontSize: 12, color: T.textMuted }}>{e.subject} · {e.date}</div></div><Badge color={T.info} bg={T.infoBg}>{e.type}</Badge></div>))}</Card>
       </div>
@@ -716,6 +774,7 @@ const StudentDashboard = () => {
 const ParentDashboard = () => {
   const child = students[0];
   const [tab, setTab] = useState("overview");
+  const { isMobile } = useBreakpoint();
   return (<div>
     <Tabs tabs={[{ key: "overview", label: "Child Overview" }, { key: "attendance", label: "Attendance" }, { key: "exams", label: "Results" }, { key: "invoices", label: "Invoices" }]} active={tab} onChange={setTab} />
     {tab === "overview" && (<>
@@ -728,7 +787,7 @@ const ParentDashboard = () => {
         <StatCard label="Next Fee Due" value="Rs 32,000" sub="Apr 15, 2026" icon="dollar" color={T.warn} bg={T.warnBg} />
         <StatCard label="Upcoming Exams" value="3" sub="Starting Apr 18" icon="file" color={T.info} bg={T.infoBg} />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
         <Card><SectionHeader title="Weekly Attendance" />{["Mon", "Tue", "Wed", "Thu", "Fri"].map((d, i) => (<div key={d} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: i < 4 ? `1px solid ${T.border}` : "none" }}><div style={{ width: 40, fontSize: 13, fontWeight: 600 }}>{d}</div><div style={{ width: 10, height: 10, borderRadius: "50%", background: i === 2 ? T.warn : T.success }} /><div style={{ fontSize: 13, color: T.textMuted }}>{i === 2 ? "Late (10 min)" : "Present"}</div></div>))}</Card>
         <Card><SectionHeader title="Notices" />{notices.map((n, i) => (<div key={i} style={{ padding: "8px 0", borderBottom: i < notices.length - 1 ? `1px solid ${T.border}` : "none" }}><div style={{ fontSize: 13, fontWeight: 600 }}>{n.title}</div><div style={{ fontSize: 12, color: T.textMuted }}>{n.date} · {n.type}</div></div>))}</Card>
       </div>
@@ -790,13 +849,29 @@ const sidebarItems = {
 const DashboardLayout = ({ user, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [page, setPage] = useState("dashboard");
+  const { isMobile } = useBreakpoint();
   const DashComp = { admin: AdminDashboard, teacher: TeacherDashboard, student: StudentDashboard, parent: ParentDashboard }[user.role];
 
+  useEffect(() => {
+    if (isMobile) setSidebarOpen(false);
+  }, [isMobile]);
+
   return (
-    <div style={{ fontFamily: T.font, background: T.bg, minHeight: "100vh", display: "flex", color: T.text }}>
+    <div style={{ fontFamily: T.font, background: T.bg, minHeight: "100vh", display: "flex", color: T.text, overflowX: "hidden" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
 
-      <aside style={{ width: sidebarOpen ? 240 : 0, overflow: "hidden", background: T.surface, borderRight: `1px solid ${T.border}`, display: "flex", flexDirection: "column", transition: "width .2s ease", flexShrink: 0 }}>
+      {isMobile && sidebarOpen && (
+        <div role="presentation" onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 150 }} />
+      )}
+
+      <aside style={isMobile ? {
+        position: "fixed", left: 0, top: 0, bottom: 0, width: 260, zIndex: 160,
+        transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
+        overflow: "hidden", background: T.surface, borderRight: `1px solid ${T.border}`,
+        display: "flex", flexDirection: "column", transition: "transform .25s ease", flexShrink: 0, boxShadow: sidebarOpen ? "8px 0 32px rgba(0,0,0,0.12)" : "none",
+      } : {
+        width: sidebarOpen ? 240 : 0, overflow: "hidden", background: T.surface, borderRight: `1px solid ${T.border}`, display: "flex", flexDirection: "column", transition: "width .2s ease", flexShrink: 0,
+      }}>
         <div style={{ padding: "20px 18px 12px", borderBottom: `1px solid ${T.border}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 34, height: 34, borderRadius: T.radiusSm, background: T.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 15 }}>E</div>
@@ -805,7 +880,7 @@ const DashboardLayout = ({ user, onLogout }) => {
         </div>
         <nav style={{ flex: 1, padding: "8px 8px", overflowY: "auto" }}>
           {(sidebarItems[user.role] || []).map(item => (
-            <button key={item.key} onClick={() => setPage(item.key)} style={{
+            <button key={item.key} onClick={() => { setPage(item.key); if (isMobile) setSidebarOpen(false); }} style={{
               display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "9px 12px", border: "none", borderRadius: T.radiusSm, cursor: "pointer", fontFamily: T.font,
               background: page === item.key ? T.surfaceAlt : "transparent", color: page === item.key ? T.text : T.textMuted, fontWeight: page === item.key ? 600 : 400, fontSize: 13, textAlign: "left", transition: "all .12s",
             }}>{I(item.icon, { size: 16, color: page === item.key ? T.accent : T.textMuted })}{item.label}</button>
@@ -824,14 +899,16 @@ const DashboardLayout = ({ user, onLogout }) => {
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <header style={{ height: 56, background: T.surface, borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", padding: "0 20px", gap: 12, flexShrink: 0 }}>
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ border: "none", background: "none", cursor: "pointer", padding: 4 }}>{I(sidebarOpen ? "x" : "menu", { size: 20, color: T.text })}</button>
-          <span style={{ fontSize: 15, fontWeight: 700, color: T.text, flex: 1 }}>{roleLabels[user.role]} Dashboard</span>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, background: T.surfaceAlt, borderRadius: 99, padding: "6px 14px" }}>
-            {I("search", { size: 14 })}<input placeholder="Search..." style={{ border: "none", background: "transparent", outline: "none", fontFamily: T.font, fontSize: 13, width: 140, color: T.text }} />
-          </div>
+          <button type="button" aria-label={sidebarOpen ? "Close menu" : "Open menu"} onClick={() => setSidebarOpen(!sidebarOpen)} style={{ border: "none", background: "none", cursor: "pointer", padding: 4 }}>{I(sidebarOpen ? "x" : "menu", { size: 20, color: T.text })}</button>
+          <span style={{ fontSize: isMobile ? 14 : 15, fontWeight: 700, color: T.text, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{roleLabels[user.role]} Dashboard</span>
+          {!isMobile && (
+            <div style={{ display: "flex", alignItems: "center", gap: 4, background: T.surfaceAlt, borderRadius: 99, padding: "6px 14px" }}>
+              {I("search", { size: 14 })}<input placeholder="Search..." style={{ border: "none", background: "transparent", outline: "none", fontFamily: T.font, fontSize: 13, width: 140, color: T.text }} />
+            </div>
+          )}
           <div style={{ position: "relative", cursor: "pointer" }}>{I("bell", { size: 18, color: T.text })}<div style={{ position: "absolute", top: -2, right: -2, width: 8, height: 8, borderRadius: "50%", background: T.danger, border: `2px solid ${T.surface}` }} /></div>
         </header>
-        <main style={{ flex: 1, padding: 20, overflowY: "auto" }}><DashComp /></main>
+        <main style={{ flex: 1, padding: isMobile ? 16 : 20, overflowY: "auto" }}><DashComp /></main>
       </div>
     </div>
   );
